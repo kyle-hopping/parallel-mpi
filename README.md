@@ -47,7 +47,7 @@ Merges two large sorted arrays in parallel using the **co-rank algorithm**.
 
 ```bash
 mpirun -n 4 ./parallelMerge 10000 5000 42
-#                             ^len1  ^len2  ^seed
+#                           ^len1 ^len2 ^seed
 ```
 
 ---
@@ -101,6 +101,52 @@ mpicc -o primeGap primeGap.c -lm
 
 ---
 
+## 📈 Benchmark Results
+
+All benchmarks were run on the SHARCnet teaching cluster using OpenMPI 5.0.3.
+
+### 🌐 PageRank — Dense (15-node WLU graph)
+
+| ε | Iterations | Converged? |
+|---|---|---|
+| 10⁻¹ | 2 | Partial (8 pages tied) |
+| 10⁻³ | 6 | ✅ Fully resolved |
+| 10⁻⁵ | 13 | ✅ Fully resolved |
+| 10⁻⁷ | 21 | ✅ Fully resolved |
+
+Results were **identical across all process counts (P = 2–8)**, confirming correct parallel decomposition. Top-ranked page: **Laurier Library** (score: 0.0814). The two dangling nodes scored ~6.7× lower than the median, consistent with theory.
+
+### 🌐 PageRank — Sparse (real-world SNAP datasets, ε = 10⁻⁵)
+
+| Dataset | Nodes | P=2 (s) | P=16 (s) | Speedup |
+|---|---|---|---|---|
+| web-Stanford | 281,903 | 0.583 | 0.393 | 1.48× |
+| web-BerkStan | 685,230 | 1.255 | 0.740 | 1.70× |
+| web-Google | 875,713 | 1.760 | 1.228 | 1.43× |
+| wiki-topcats | 1,791,489 | 3.771 | 1.809 | **2.08×** |
+
+### 🔀 Parallel Merge — Co-rank vs. Baseline (1M vs 1M elements)
+
+| Processes | Baseline (s) | Co-rank (s) | Speedup |
+|---|---|---|---|
+| 2 | 0.01089 | 0.00767 | 1.42× |
+| 4 | 0.01056 | 0.00564 | 1.87× |
+| 8 | 0.00723 | 0.00426 | **1.70×** |
+
+Co-rank achieved up to **470 million elements/second** and **88–91% parallel efficiency** at 8 processes. On skewed arrays (1M vs 100K), the baseline degraded by 41% when scaling from 3→7 processes while co-rank continued to improve — up to a **3.33× speedup** over the baseline.
+
+### 🔢 Prime Gap — Segmented Sieve (range: [2, 10⁹])
+
+| Processes | Time (s) | Max Gap Found |
+|---|---|---|
+| 2 | 1.458 | 282 |
+| 4 | 0.731 | 282 |
+| 8 | **0.366** | 282 |
+
+Largest gap in [2, 10⁹]: **282**, between primes 436,273,009 and 436,273,291. For the bonus range [2, 10¹²], the algorithm correctly found a gap of **540** and achieved a **3.76× speedup** from P=2 to P=8, with parallel efficiency above 94%.
+
+---
+
 ## 📊 Performance Notes
 
 - All programs use `MPI_Wtime()` to report wall-clock runtimes
@@ -121,11 +167,3 @@ All programs were developed and tested on **[SciNet](https://research.utoronto.c
 - C99 or later
 - MPI (OpenMPI ≥ 4.0 or MPICH ≥ 3.3 recommended)
 - `-lm` flag for `<math.h>`
-
----
-
-## 👤 Author
-
-**[Your Name]**  
-[Your University / Program]  
-[Your LinkedIn / GitHub / Email]
